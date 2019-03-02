@@ -62,11 +62,6 @@ public class NBodyTest {
 
 public static class NBodyEntryPoint {
 
-  private static string GetArg(this string[] args, string flag, bool checkexist = false) {
-    var idx = Array.IndexOf(args, flag) + 1;
-    if (checkexist) { return idx > 0 ? flag : null; }
-    return idx > 0 && idx < args.Length ? args[idx] : null;
-  }
 
   private static Action Test;
   public static ArgCollection Options { get; set; } =
@@ -92,6 +87,9 @@ public static class NBodyEntryPoint {
         }),
         new ArgOption("FixedArrays", nameof(NBody_FixedArrays), (args, val) => {
           Test = ()=> NBody_FixedArrays.Main(NBodyTest.args);
+        }),
+        new ArgOption("cpp7", nameof(NBody_CPP7_Translated), (args, val) => {
+          Test = ()=> NBody_CPP7_Translated.Main(NBodyTest.args);
         }),
         new ArgOption("SSE2", nameof(NBody_SSE2), (args, val) => {
           Test = ()=> NBody_SSE2.Main(NBodyTest.args);
