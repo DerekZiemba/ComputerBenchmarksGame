@@ -30,7 +30,7 @@ public unsafe struct NBody_CPP7_Translated {
   public static void Main(string[] args) {
     unchecked {
       NBody* ptrSun = stackalloc NBody[SIZE];
-      Delta* r = stackalloc Delta[N];
+
 
       InitBodies(ptrSun);     
 
@@ -38,7 +38,7 @@ public unsafe struct NBody_CPP7_Translated {
 
       int advancements = args.Length > 0 ? Int32.Parse(args[0]) : 1000;
       while (advancements-- > 0) {
-        Advance(ptrSun, r, 0.01d);
+        Advance(ptrSun, 0.01d);
       }
 
       Console.Out.WriteLine(Energy(ptrSun).ToString("F9"));
@@ -47,9 +47,10 @@ public unsafe struct NBody_CPP7_Translated {
 
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  private static void Advance(NBody* bodies, Delta* r, double dt) {
+  private static void Advance(NBody* bodies, double dt) {
     unchecked {
       double* mag = stackalloc double[1000];
+      Delta* r = stackalloc Delta[N];
 
       for (int i = 0, k = 0; i < SIZE - 1; ++i) {
         NBody iBody = bodies[i];

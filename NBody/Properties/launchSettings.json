@@ -1,7 +1,8 @@
 {
   "profiles": {
     "NBody": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "sse2"
     }
   }
 }

@@ -8,78 +8,60 @@ using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 
-public unsafe struct NBody_SSE2 {
-  [StructLayout(LayoutKind.Sequential)]
-  unsafe struct NBody {
-    public double x, y, z, fill, vx, vy, vz, mass;
-    public override string ToString() {
-      return $"x={x.ToString("F9")}, y={y.ToString("F9")}, z={z.ToString("F9")}, vx={vx.ToString("F9")}, vy={vy.ToString("F9")}, vz={vz.ToString("F9")}";
-    }
-  }
-  [StructLayout(LayoutKind.Sequential)]
-  unsafe struct Delta {
-    public double dx, dy, dz, fill;
-    public override string ToString() {
-      return String.Concat(dx.ToString("F9"), ", ", dy.ToString("F9"), ", ", dz.ToString("F9"));
-    }
-  }
-
+public unsafe static class NBody_SSE2 {
   public static T[] ToArray<T>(T* ptr, int size = 10) where T : unmanaged {
     T[] result = new T[size];
     for (var i = 0; i < size; i++) { result[i] = ptr[i]; }
     return result;
   }
 
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public static string Fmt(this double val) => val.ToString("F9");
+
+  [StructLayout(LayoutKind.Sequential)]
+  unsafe struct NBody {
+    public double x, y, z, vx, vy, vz, mass;
+    public override string ToString() {
+      return $"x={x.Fmt()}, y={y.Fmt()}, z={z.Fmt()}, vx={vx.Fmt()}, vy={vy.Fmt()}, vz={vz.Fmt()}";
+    }
+  }
+  [StructLayout(LayoutKind.Sequential)]
+  unsafe struct Delta {
+    public double dx, dy, dz;
+    public override string ToString() {
+      return String.Concat(dx.Fmt(), ", ", dy.Fmt(), ", ", dz.Fmt());
+    }
+  }
+
 
   private const int SIZE = 5;
   private const int N = (SIZE - 1) * SIZE / 2;
 
-  //fixed double mag[1000];
 
   public static void Main(string[] args) {
     unchecked {
-      NBody* ptrSun = stackalloc NBody[SIZE];
-      Delta* r = stackalloc Delta[N];
-      double* mag = stackalloc double[N];
+      fixed (NBody* bodies = new NBody[5])
+      fixed (Delta* r = new Delta[N])
+      fixed (double* mag = new double[N]) {
+        InitBodies(bodies);
 
-      InitBodies(ptrSun);            // stackalloc uses fewer lines though. 
-
-      string result = Energy(ptrSun).ToString("F9");
-      //Debug.Assert(result == "-0.169075164", "Incorrect result of: " + result);
-      Console.Out.WriteLine(result);
-
-      int advancements = args.Length > 0 ? Int32.Parse(args[0]) : 1000;
-      while (advancements-- > 0) {
-        Advance(ptrSun, r, mag, 0.01d);
+        Energy(bodies);
+        int advancements = args.Length > 0 ? Int32.Parse(args[0]) : 1000;
+        while (advancements-- > 0) { Advance(bodies, r, mag); }
+        Energy(bodies);
       }
-
-      result = Energy(ptrSun).ToString("F9");
-      //Debug.Assert(result == "-0.169059907", "Incorrect result of: " + result);
-      Console.Out.WriteLine(result);
     }
   }
 
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  private static void Advance(NBody* bodies, Delta* r, double* mag, double dt) {
+  private static void Advance(NBody* bodies, Delta* r, double* mag) {
+    const double DT = 0.01;
     unchecked {
-      //NBody* i = null, j = null;
-      //Delta* k = null;
-      //for (i = ptrSun, k = r; i < ptrEnd; ++i) {
-      //  NBody iBody = *i;
-      //  for (j = i + 1; j <= ptrEnd; ++j, ++k) {
-      //    k->dx = iBody.x - j->x;
-      //    k->dy = iBody.y - j->y;
-      //    k->dz = iBody.z - j->z;
-      //  }
-      //}
-      //var arr = ToArray(r, 1000);
-      //var a2 = ToArray(mag, 1000);
-
       for (int i = 0, k = 0; i < SIZE - 1; ++i) {
         NBody iBody = bodies[i];
         for (int j = i + 1; j < SIZE; ++j, ++k) {
-          r[k].dx = iBody.x - bodies[j].x;
+          r[k].dx = iBody.x - bodies[j].x; 
           r[k].dy = iBody.y - bodies[j].y;
           r[k].dz = iBody.z - bodies[j].z;
         }
@@ -114,7 +96,7 @@ public unsafe struct NBody_SSE2 {
         }
 
         Vector128<double> dmag = Sse2.Multiply(
-          Sse2.Divide(Sse2.SetAllVector128(dt), dSquared), distance);
+          Sse2.Divide(Sse2.SetAllVector128(DT), dSquared), distance);
 
         Sse2.Store(&mag[i], dmag);
       }
@@ -133,16 +115,16 @@ public unsafe struct NBody_SSE2 {
         }
       }
       for (int i = 0; i < SIZE; ++i) {
-        bodies[i].x += dt * bodies[i].vx;
-        bodies[i].y += dt * bodies[i].vy;
-        bodies[i].z += dt * bodies[i].vz;
+        bodies[i].x += DT * bodies[i].vx;
+        bodies[i].y += DT * bodies[i].vy;
+        bodies[i].z += DT * bodies[i].vz;
       }
     }
 
   }
 
 
-  private static double Energy(NBody* ptrSun) {
+  private static void Energy(NBody* ptrSun) {
     unchecked {
       double e = 0.0;
       for (NBody* bi = ptrSun; bi < ptrSun+SIZE; ++bi) {
@@ -164,17 +146,9 @@ public unsafe struct NBody_SSE2 {
           e -= imass * jmass / Math.Sqrt(dx * dx + dy * dy + dz * dz);
         }
       }
-      return e;
+      Console.Out.WriteLine(e.Fmt());
     }
   }
-
-  /// <summary> Apparently minimizing the number of parameters in a function leads to improvements... This eliminates d2 from Advance() </summary>
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  private static double GetMagnitude(double dx, double dy, double dz) {
-    double d2 = dx * dx + dy * dy + dz * dz;
-    return d2 * Math.Sqrt(d2);
-  }
-
 
   private static void InitBodies(NBody* ptrSun) {
     const double Pi = 3.141592653589793;

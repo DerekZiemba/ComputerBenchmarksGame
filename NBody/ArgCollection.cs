@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using BenchmarkDotNet;
 using BenchmarkDotNet.Attributes;
@@ -22,9 +23,10 @@ public class ArgCollection: KeyedCollection<string, ArgOption> {
   }
 
   public void Evaluate(string[] args) {
-    foreach(var arg in args) {
-      if(this.TryGetValue(arg, out var option)) {
-        option.Action(args, arg);
+    for (var i = 0; i < args.Length; i++) {
+      if (this.TryGetValue(args[i], out var option)) {
+        var _params = args.Skip(i+1).TakeWhile(x => !x.StartsWith('-')).ToArray();
+        option.Action(_params);
       }
     }
   }
@@ -34,10 +36,12 @@ public class ArgCollection: KeyedCollection<string, ArgOption> {
 public class ArgOption {
   public string Flag { get; set; }
   public string Description { get; set; }
-  public Action<string[], string> Action { get; set; }
-  public ArgOption(string flag, string description, Action<string[], string> op) {
+  public Action<string[]> Action { get; set; }
+
+  public ArgOption(string flag, string description, Action<string[]> op) {
     this.Flag = flag;
     this.Description = description;
     this.Action = op;
   }
+
 }
