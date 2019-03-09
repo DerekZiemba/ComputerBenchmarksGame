@@ -5,65 +5,107 @@
 using System;
 using System.Runtime.CompilerServices;
 
-public static unsafe class NBody_StructPtr_Optimized {
+public static unsafe class NBody_StructPtr_GoTo {
+
   private const double DT = 0.01;
 
   unsafe struct NBody { public double x, y, z, vx, vy, vz, mass; }
 
   public unsafe static void Main(string[] args) {
-    unchecked { Run(args.Length > 0 ? Int32.Parse(args[0]) : 1000); }
-  }
-
-  private unsafe static void Run(int advancements) {
     unchecked {
       NBody* bodies = stackalloc NBody[5];
       NBody* last = bodies + 4;
       InitBodies(bodies, last);
       Energy(bodies, last);
-      while (advancements-- > 0) { Advance(bodies, last); }
+
+      Run(args.Length > 0 ? Int32.Parse(args[0]) : 1000, bodies, last);
+
       Energy(bodies, last);
     }
   }
 
-
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  private unsafe static void Advance(NBody* bi, NBody* last) {
+  private unsafe static void Run(int advancements, NBody* bodies, NBody* last) {
     unchecked {
-      for (; bi < last; ++bi) {
-        double
-           ix = bi->x,
-           iy = bi->y,
-           iz = bi->z,
-           ivx = bi->vx,
-           ivy = bi->vy,
-           ivz = bi->vz,
-           imass = bi->mass;
-        for (NBody* bj = bi + 1; bj <= last; ++bj) {
-          double
-             dx = bj->x - ix,
-             dy = bj->y - iy,
-             dz = bj->z - iz,
-             jmass = bj->mass,
-             mag = GetMagnitude(dx, dy, dz);
-          bj->vx = bj->vx - dx * imass * mag;
-          bj->vy = bj->vy - dy * imass * mag;
-          bj->vz = bj->vz - dz * imass * mag;
-          ivx = ivx + dx * jmass * mag;
-          ivy = ivy + dy * jmass * mag;
-          ivz = ivz + dz * jmass * mag;
-        }
-        bi->x = ix + ivx * DT;
-        bi->y = iy + ivy * DT;
-        bi->z = iz + ivz * DT;
-        bi->vx = ivx;
-        bi->vy = ivy;
-        bi->vz = ivz;
-      }
+ADVANCE:
+      NBody* bi = bodies;
+OUTERLOOP:
+      NBody* bj = bi + 1;
+      double
+         ix = bi->x,
+         iy = bi->y,
+         iz = bi->z,
+         ivx = bi->vx,
+         ivy = bi->vy,
+         ivz = bi->vz,
+         imass = bi->mass;
+INNERLOOP:
+      double
+         dx = bj->x - ix,
+         dy = bj->y - iy,
+         dz = bj->z - iz,
+         jmass = bj->mass,
+         mag = GetMagnitude(dx, dy, dz);
+      bj->vx = bj->vx - dx * imass * mag;
+      bj->vy = bj->vy - dy * imass * mag;
+      bj->vz = bj->vz - dz * imass * mag;
+      ivx = ivx + dx * jmass * mag;
+      ivy = ivy + dy * jmass * mag;
+      ivz = ivz + dz * jmass * mag;
+      if (++bj <= last) { goto INNERLOOP; }
+      bi->x = ix + ivx * DT;
+      bi->y = iy + ivy * DT;
+      bi->z = iz + ivz * DT;
+      bi->vx = ivx;
+      bi->vy = ivy;
+      bi->vz = ivz;
+      if (++bi < last) { goto OUTERLOOP; }
       last->x = last->x + last->vx * DT;
       last->y = last->y + last->vy * DT;
       last->z = last->z + last->vz * DT;
+      if (--advancements > 0) { goto ADVANCE; }
     }
   }
+
+
+//  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+//  private unsafe static void Advance(NBody* bi, NBody* last) {
+//    unchecked {
+//OUTERLOOP:
+//      double
+//         ix = bi->x,
+//         iy = bi->y,
+//         iz = bi->z,
+//         ivx = bi->vx,
+//         ivy = bi->vy,
+//         ivz = bi->vz,
+//         imass = bi->mass;
+//      NBody* bj = bi + 1;
+//INNERLOOP:
+//      double
+//         dx = bj->x - ix,
+//         dy = bj->y - iy,
+//         dz = bj->z - iz,
+//         jmass = bj->mass,
+//         mag = GetMagnitude(dx, dy, dz);
+//      bj->vx = bj->vx - dx * imass * mag;
+//      bj->vy = bj->vy - dy * imass * mag;
+//      bj->vz = bj->vz - dz * imass * mag;
+//      ivx = ivx + dx * jmass * mag;
+//      ivy = ivy + dy * jmass * mag;
+//      ivz = ivz + dz * jmass * mag;
+//      if (++bj <= last) { goto INNERLOOP; }
+//      bi->x = ix + ivx * DT;
+//      bi->y = iy + ivy * DT;
+//      bi->z = iz + ivz * DT;
+//      bi->vx = ivx;
+//      bi->vy = ivy;
+//      bi->vz = ivz;
+//      if (++bi < last) { goto OUTERLOOP; }
+//      last->x = last->x + last->vx * DT;
+//      last->y = last->y + last->vy * DT;
+//      last->z = last->z + last->vz * DT;
+//    }
+//  }
 
   /// <summary> Apparently minimizing the number of parameters in a function leads to improvements... This eliminates d2 from Advance() </summary>
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -72,33 +114,34 @@ public static unsafe class NBody_StructPtr_Optimized {
     return DT / (d2 * Math.Sqrt(d2));
   }
 
-
-  private unsafe static void Energy(NBody* bi, NBody* last) {
+  private unsafe static void Energy(NBody* bodies, NBody* last) {
     unchecked {
       double e = 0.0;
-      for (; bi <= last; ++bi) {
-        double
-           ix = bi->x,
-           iy = bi->y,
-           iz = bi->z,
-           ivx = bi->vx,
-           ivy = bi->vy,
-           ivz = bi->vz,
-           imass = bi->mass;
-        e += 0.5 * imass * (ivx * ivx + ivy * ivy + ivz * ivz);
-        for (NBody* bj = bi + 1; bj <= last; ++bj) {
-          double
-             dx = ix - bj->x,
-             dy = iy - bj->y,
-             dz = iz - bj->z;
-          e -= bj->mass * imass / Math.Sqrt(dx * dx + dy * dy + dz * dz);
-        }
-      }
+      NBody* bi = bodies;
+OUTERLOOP:
+      NBody* bj = bi + 1;
+      double
+          ix = bi->x,
+          iy = bi->y,
+          iz = bi->z,
+          ivx = bi->vx,
+          ivy = bi->vy,
+          ivz = bi->vz,
+          imass = bi->mass;
+      e += 0.5 * imass * (ivx * ivx + ivy * ivy + ivz * ivz);
+INNERLOOP:
+      double
+         dx = ix - bj->x,
+         dy = iy - bj->y,
+         dz = iz - bj->z;
+      e -= imass * bj->mass / Math.Sqrt(dx * dx + dy * dy + dz * dz);
+      if (++bj <= last) { goto INNERLOOP; }
+      if (++bi <= last) { goto OUTERLOOP; }
       Console.Out.WriteLine(e.ToString("F9"));
     }
   }
 
-  private unsafe static void InitBodies(NBody* bodies, NBody* last) {
+  private static void InitBodies(NBody* bodies, NBody* last) {
     const double Pi = 3.141592653589793;
     const double Solarmass = 4 * Pi * Pi;
     const double DaysPeryear = 365.24;

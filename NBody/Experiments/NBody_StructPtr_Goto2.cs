@@ -5,7 +5,7 @@
 using System;
 using System.Runtime.CompilerServices;
 
-public static unsafe class NBody_StructPtr_Goto {
+public static unsafe class NBody_StructPtr_Goto2 {
   private const double DT = 0.01;
 
 
@@ -25,14 +25,6 @@ public static unsafe class NBody_StructPtr_Goto {
       }
       Energy(bodies, last);
     }
-  }
-
-
-  /// <summary> Apparently minimizing the number of parameters in a function leads to improvements... This eliminates d2 from Advance() </summary>
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  private static double GetMagnitude(double dx, double dy, double dz) {
-    double d2 = dx * dx + dy * dy + dz * dz;
-    return DT / (Math.Sqrt(d2) * d2);
   }
 
 
@@ -63,12 +55,12 @@ INNERLOOP:
       ivy = ivy + dy * jmass * mag;
       ivz = ivz + dz * jmass * mag;
       if (++bj <= last) { goto INNERLOOP; }
-      bi->vx = ivx;
-      bi->vy = ivy;
-      bi->vz = ivz;
       bi->x = ix + ivx * DT;
       bi->y = iy + ivy * DT;
       bi->z = iz + ivz * DT;
+      bi->vx = ivx;
+      bi->vy = ivy;
+      bi->vz = ivz;
       if (++bi < last) { goto OUTERLOOP; }
       bi->x = bi->x + bi->vx * DT;
       bi->y = bi->y + bi->vy * DT;
@@ -102,6 +94,14 @@ INNERLOOP:
       Console.Out.WriteLine(e.ToString("F9"));
     }
   }
+
+  /// <summary> Apparently minimizing the number of parameters in a function leads to improvements... This eliminates d2 from Advance() </summary>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  private static double GetMagnitude(double dx, double dy, double dz) {
+    double d2 = dx * dx + dy * dy + dz * dz;
+    return DT / (Math.Sqrt(d2) * d2);
+  }
+
 
   private static void InitBodies(NBody* bodies, NBody* last) {
     const double Pi = 3.141592653589793;

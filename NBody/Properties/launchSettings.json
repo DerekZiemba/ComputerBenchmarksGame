@@ -2,7 +2,7 @@
   "profiles": {
     "NBody": {
       "commandName": "Project",
-      "commandLineArgs": "sse2"
+      "commandLineArgs": "-s throughput"
     }
   }
 }
