@@ -47,54 +47,68 @@ public static class EntryPoint {
     }
 
     return () => {
-      Console.WriteLine("Test: " + type.FullName);
+      Console.WriteLine("Test started: " + type.FullName);
       Stopwatch sw = Stopwatch.StartNew();
       action();
-      Console.WriteLine("Millis: " + sw.ElapsedMilliseconds);
-      Console.WriteLine("Finished. \n");
-      Options.Evaluate(new string[] { "-h" });
+      Console.WriteLine("Finished: " + type.FullName + " in " + sw.ElapsedMilliseconds + "ms\n");
     };
   }
   private static ArgOption BuildTestOption(Type type, string flag, string desc = null, Func<IConfig> cfg = null) {
     Action test = CreateTest(type, cfg?.Invoke());
-    return new ArgOption(flag, desc == null ? type.FullName : desc, (args) => Task.Delay(1).ContinueWith((task) => test()));
+    return new ArgOption(flag, desc == null ? type.FullName : desc, (args) => {
+      Task.Delay(1).ContinueWith((task) => test());
+      return 0;
+    });
   }
 
 
 
   public static ArgCollection Options { get; set; } =
       new ArgCollection {
-        new ArgOption("-h", "List options", (args) => {
+        new ArgOption("-help", "List options", (args) => {
           Console.WriteLine("Available Options: ");
           foreach(var option in Options) {
             Console.WriteLine($"\t{option.Flag} = {option.Description}");
           }
           Console.Write("\n\nEnter Command: ");
+          return 1;
         }),
-        new ArgOption("-i", "Set number of times NBody Advance() is called.", (args) => {
+        new ArgOption("-input", "Set number of times NBody Advance() is called.", (args) => {
           if (Int64.TryParse(args[0], out var val)) {
-            Input = new string[] { val.ToString() }; ;
+            Input = new string[] { val.ToString() }; 
+            Console.WriteLine("\tIterations set to: " + Input[0].ToString());
+            return 1;
           }
-          Console.WriteLine("Iterations: " + Input[0].ToString());
+          return 0;
         }),
-        new ArgOption("-c", "Count: Number of times each individual test is run.", (args) => {
-          if (Int32.TryParse(args[0], out var val)) { IterationCount = val; }
-          Console.WriteLine("IterationCount: " + IterationCount.ToString());
+        new ArgOption("-count", "Count: Number of times each individual test is run.", (args) => {
+          if (Int32.TryParse(args[0], out var val)) {
+            IterationCount = val;
+            Console.WriteLine("\tIterationCount set to: " + IterationCount.ToString());
+            return 1;
+          }
+          return 0;
         }),
-        new ArgOption("-l", "Launches: Number of times each test is launched.", (args) => {
-          if (Int32.TryParse(args[0], out var val)) { LaunchCount = val; }
-          Console.WriteLine("Launches: " + LaunchCount.ToString());
+        new ArgOption("-launches", "Launches: Number of times each test is launched.", (args) => {
+          if (Int32.TryParse(args[0], out var val)) {
+            LaunchCount = val;
+            Console.WriteLine("\tLaunches set to: " + LaunchCount.ToString());
+            return 1;
+          }
+          return 0;
         }),
-        new ArgOption("-s", "Strategy: 0-Throughput, 1-ColdStart, or 2-Monitoring", (args) => {
+        new ArgOption("-strategy", "Strategy: 0-Throughput, 1-ColdStart, or 2-Monitoring", (args) => {
           if(Int32.TryParse(args[0], out var val)) {
             Strategy = (RunStrategy)val;
           } else {
             Strategy = Enum.GetValues(typeof(RunStrategy)).Cast<RunStrategy>().First(e=> e.ToString().StartsWith(args[0], StringComparison.OrdinalIgnoreCase));
           }
-          Console.WriteLine("Strategy: " + Strategy.ToString());
+          Console.WriteLine("\tStrategy set to: " + Strategy.ToString());
+          return 1;
         }),
         BuildTestOption(typeof(StructPtrTest), "structptr", "Run the StructPtr Test Bench", ()=>new Config()),
         BuildTestOption(typeof(SSETest), "net30", "Run the SSETest on newcore 3.0", ()=>new Config30()),
+        BuildTestOption(typeof(NBody_Baseline), "baseline"),
         BuildTestOption(typeof(NBody_StructPtr_Optimized), "opt"),
         BuildTestOption(typeof(NBody_Span_GoTo), "span"),
         BuildTestOption(typeof(NBody_StructPtr_GoTo), "goto"),
